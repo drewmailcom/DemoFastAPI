@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Detection Console</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <header id="nav" hidden>
+      <strong>Detection Console</strong>
+      <a href="#/queue">Queue</a>
+      <a href="#/detections">Detections</a>
+      <a href="#/unmatched">Unmatched</a>
+      <a href="#/customers">Customers</a>
+      <a href="#/signatures">Signatures</a>
+      <span id="whoami"></span>
+      <button id="logout" class="secondary">Log out</button>
+    </header>
+    <div id="flash" hidden></div>
+    <main id="page"></main>
+    <!-- The analyst's active detection: fixed on screen on every page. -->
+    <aside id="active" hidden></aside>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

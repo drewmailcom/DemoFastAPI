@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "app",
+      "runtimeExecutable": "C:/Users/Drew/AppData/Local/Temp/claude/d2f635ed91ed5b7c/20e98a75-5f3b-4192-9746-9d08315d72b9/scratchpad/venv/Scripts/python.exe",
+      "runtimeArgs": ["-m", "uvicorn", "app.main:app", "--port", "8000"],
+      "port": 8000
+    }
+  ]
+}
