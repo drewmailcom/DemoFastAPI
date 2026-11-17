@@ -126,7 +126,8 @@ const pages = {
       )}`;
     $('#filters').addEventListener('submit', (event) => {
       event.preventDefault();
-      detectionFilters = Object.fromEntries(new FormData(event.target));
+      // "Any ..." options and an empty priority box submit "", which the API rejects: leave them out.
+      detectionFilters = Object.fromEntries([...new FormData(event.target)].filter(([, value]) => value !== ''));
       refresh();
     });
   },
