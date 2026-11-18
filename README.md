@@ -113,7 +113,7 @@ Pentru comenzile `python -m scripts...` aveți nevoie de dependențe instalate l
 
 ## 3. Unde să vă uitați în cod
 
-Am încercat să păstrez codul mic și ușor de urmărit. Fiecare criteriu din brief are un loc clar:
+Am încercat să păstrez codul mic și ușor de urmărit. Fiecare cerinta are un loc clar:
 
 | Criteriu | Fișier | Ce găsiți acolo |
 |---|---|---|
@@ -215,9 +215,9 @@ Interogările sunt puține și simple. Cu SQL explicit se vede exact ce garantea
 
 ## Ce nu am implementat (și de ce)
 
-Am preferat să livrez cerințele din brief complet și testat, în loc să adaug funcționalități pe jumătate. Lucrurile pe care le-aș face în continuare:
+Am preferat să livrez cerințele complet și testat, în loc să adaug funcționalități pe jumătate. Lucrurile pe care le-aș face în continuare:
 
-- **Gestionarea utilizatorilor din UI.** Acum utilizatorii vin din datele demo, iar brief-ul nu o cerea.
+- **Gestionarea utilizatorilor din UI.** Acum utilizatorii vin din datele demo.
 - **Eliberarea unei detecții fără închidere și reasignarea de către admin.**
 - **Un audit log complet.** Acum detecția păstrează cine a preluat-o, când și rezoluția, dar nu tot istoricul de evenimente.
 - **Matching la scară mare.** Acum încarc toate semnăturile la fiecare incident, suficient pentru sute sau mii. Pentru volume mari aș folosi un index (câmp, valoare) → semnături sau un cache. Suport doar egalitate exactă: fără regex, intervale sau liste.
