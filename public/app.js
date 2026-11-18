@@ -41,12 +41,19 @@ function flash(message, kind = 'error') {
 /** Runs a user action, shows its error (e.g. "already claimed by analyst2"), then refreshes. */
 async function act(action, successMessage) {
   try {
-    await action();
-    if (successMessage) flash(successMessage, 'ok');
+    const result = await action();
+    if (successMessage) flash(withReprocessed(successMessage, result), 'ok');
   } catch (error) {
     flash(error.message);
   }
   await refresh();
+}
+
+// Saving a signature or adding a customer retries unmatched incidents; say how many became detections.
+function withReprocessed(message, result) {
+  const count = result?.reprocessed;
+  if (!count) return message;
+  return `${message}. ${count} unmatched incident${count === 1 ? '' : 's'} became detection${count === 1 ? '' : 's'}.`;
 }
 
 function onSubmit(selector, handler, successMessage) {

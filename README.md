@@ -97,9 +97,9 @@ Valorile implicite sunt gândite doar pentru rulare locală.
 
 4. **O singură detecție activă.** Detecția preluată apare într-un panel fix în dreapta, vizibil pe orice pagină și după refresh. Dacă încercați să preluați încă una, cererea e refuzată.
 5. **Închiderea.** Scrieți o rezoluție în panel și închideți detecția. Ea dispare din coadă, dar rămâne în pagina **Detections**, unde puteți filtra după status, client, semnătură și prioritate.
-6. **Incidente fără potrivire.** Pagina **Unmatched** arată incidentele pentru care nu s-a găsit nicio semnătură sau niciun client cunoscut.
+6. **Incidente fără potrivire.** Pagina **Unmatched** arată incidentele pentru care nu s-a găsit nicio semnătură sau niciun client cunoscut. Dacă adăugați apoi semnătura sau clientul care lipsea, incidentele respective devin detecții și dispar din listă.
 7. **Roluri, verificate în API.** Ca `support` nu vedeți butoane de acțiune. Mai important e că serverul refuză și cererile directe: un `POST /api/detections/1/claim` fără sesiune primește `401`, iar cu sesiunea lui `support` primește `403`.
-8. **Administrare.** Ca `admin`, schimbați importanța unui client direct din listă sau adăugați o semnătură nouă (de exemplu `process.name=nc.exe`). Incidentele trimise după aceea o folosesc imediat.
+8. **Administrare.** Ca `admin`, schimbați importanța unui client direct din listă sau adăugați o semnătură nouă (de exemplu `process.name=nc.exe`). Incidentele trimise după aceea o folosesc imediat, iar incidentele unmatched primite înainte sunt reverificate.
 
 Ca să reveniți oricând la datele inițiale:
 
@@ -196,7 +196,9 @@ Sursele externe trimit incidente la `POST /api/ingest` cu un **API key** în hea
 - Câmpurile pot fi imbricate și se adresează cu punct, de exemplu `process.name`.
 - Valorile se compară ca text, așa cum apar în JSON, cu diferență între litere mari și mici: `3389` se potrivește cu `"3389"`, iar `true` cu `"true"`. Obiectele, listele și `null` nu se potrivesc niciodată.
 - **Când se potrivesc mai multe semnături,** creez **o singură detecție**, pentru cea mai bună. Ordinea e: prioritatea cea mai mare, apoi cea mai specifică (mai multe condiții), apoi id-ul cel mai mic, ca rezultatul să fie mereu același. Toate semnăturile potrivite rămân salvate pe detecție (`matched_signature_ids`). Am ales asta ca să nu umplu coada cu duplicate pentru același incident.
-- **Când nu se potrivește nimic sau clientul e necunoscut,** incidentul nu e ignorat. Îl salvez în `unmatched_incidents`, cu motivul, pentru audit și pentru o eventuală reprocesare. Se vede în pagina **Unmatched**.
+- **Când nu se potrivește nimic sau clientul e necunoscut,** incidentul nu e ignorat. Îl salvez în `unmatched_incidents`, cu motivul, pentru audit și pentru reprocesare. Se vede în pagina **Unmatched**.
+- **Reprocesarea incidentelor unmatched.** Când se creează sau se editează o semnătură, ori se adaugă un client, toate incidentele unmatched sunt verificate din nou cu semnăturile și clienții actuali. Cele care acum se potrivesc devin detecții și sunt scoase din `unmatched_incidents`, într-o singură tranzacție. Detecția primește ca dată de creare momentul în care a fost primit incidentul, deci își ocupă locul corect în coadă. Cele care tot nu se potrivesc rămân, cu motivul actualizat (de exemplu, clientul acum există, dar nu se potrivește nicio semnătură). `FOR UPDATE SKIP LOCKED` face ca două reprocesări simultane să nu transforme același incident în două detecții. Răspunsul API-ului conține câmpul `reprocessed`, cu numărul de detecții create, pe care UI-ul îl afișează.
+  - Limită cunoscută: un incident primit exact în timp ce se salvează semnătura (a citit semnăturile înainte de salvare, dar a fost scris după reprocesare) rămâne unmatched până la următoarea reprocesare. Fereastra e de ordinul milisecundelor.
 
 ### Prioritatea
 - `prioritate = importanța clientului (1–5) × prioritatea semnăturii (1–5)`, deci un scor între 1 și 25.
@@ -221,7 +223,6 @@ Am preferat să livrez cerințele complet și testat, în loc să adaug funcțio
 - **Eliberarea unei detecții fără închidere și reasignarea de către admin.**
 - **Un audit log complet.** Acum detecția păstrează cine a preluat-o, când și rezoluția, dar nu tot istoricul de evenimente.
 - **Matching la scară mare.** Acum încarc toate semnăturile la fiecare incident, suficient pentru sute sau mii. Pentru volume mari aș folosi un index (câmp, valoare) → semnături sau un cache. Suport doar egalitate exactă: fără regex, intervale sau liste.
-- **Reprocesarea automată a incidentelor unmatched** când apare o semnătură nouă.
 - **Rate limiting la login** și curățarea sesiunilor expirate (acum sunt doar ignorate).
 - **Actualizări push** (SSE/WebSocket) în locul polling-ului la 5 secunde.
 - **SSO (OIDC)** în locul login-ului cu parolă, pentru un mediu de producție.

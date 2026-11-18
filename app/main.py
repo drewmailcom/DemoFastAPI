@@ -14,7 +14,7 @@ from app import auth, db
 from app.auth import Role, User, current_user, require_ingest_key, require_role
 from app.customers import CustomerIn, create_customer, delete_customer, list_customers, update_customer
 from app.detections import claim_detection, close_detection, get_active_detection, get_queue, list_detections
-from app.ingest import ingest_incident, list_unmatched
+from app.ingest import ingest_incident, list_unmatched, reprocess_unmatched
 from app.seed import seed_if_empty
 from app.signatures import SignatureIn, create_signature, delete_signature, list_signatures, update_signature
 from app.validation import Text
@@ -115,7 +115,8 @@ def customers():
 
 @api.post("/customers", status_code=201, dependencies=ADMIN_ONLY)
 def add_customer(customer: CustomerIn):
-    return create_customer(customer)
+    # Incidents that arrived before this customer existed may now become detections.
+    return {**create_customer(customer), "reprocessed": reprocess_unmatched()}
 
 
 @api.put("/customers/{customer_id}", dependencies=ADMIN_ONLY)
@@ -135,12 +136,13 @@ def signatures():
 
 @api.post("/signatures", status_code=201, dependencies=ADMIN_ONLY)
 def add_signature(signature: SignatureIn):
-    return create_signature(signature)
+    # Incidents that arrived before this signature existed may now become detections.
+    return {**create_signature(signature), "reprocessed": reprocess_unmatched()}
 
 
 @api.put("/signatures/{signature_id}", dependencies=ADMIN_ONLY)
 def edit_signature(signature_id: Id, signature: SignatureIn):
-    return update_signature(signature_id, signature)
+    return {**update_signature(signature_id, signature), "reprocessed": reprocess_unmatched()}
 
 
 @api.delete("/signatures/{signature_id}", status_code=204, dependencies=ADMIN_ONLY)

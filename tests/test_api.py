@@ -169,3 +169,67 @@ def test_new_signature_is_used_for_matching_right_away(users, ingest):
 
 def test_cannot_delete_a_signature_that_has_detections(users):
     assert users["admin"].delete("/api/signatures/1").status_code == 409
+
+
+# ---- reprocessing unmatched incidents ---------------------------------------------------------
+
+
+def unmatched_payloads(users) -> list[dict]:
+    return [incident["payload"] for incident in users["support"].get("/api/unmatched").json()]
+
+
+def test_signature_created_later_turns_earlier_incidents_into_detections(users, ingest):
+    incident = {"customer_id": 1, "process": {"name": "rclone.exe"}, "test": "late-signature"}
+    assert ingest(incident).json()["reason"] == "NO_SIGNATURE"
+    unmatched_before = users["support"].get("/api/unmatched").json()
+    received_at = next(i["received_at"] for i in unmatched_before if i["payload"] == incident)
+
+    created = users["admin"].post(
+        "/api/signatures",
+        json={"name": "Rclone exfiltration", "priority": 5, "conditions": [{"field": "process.name", "value": "rclone.exe"}]},
+    )
+    assert created.status_code == 201
+    assert created.json()["reprocessed"] >= 1
+
+    assert incident not in unmatched_payloads(users)
+    detection = next(d for d in users["support"].get("/api/detections").json() if d["payload"] == incident)
+    assert detection["signature_id"] == created.json()["id"]
+    assert detection["status"] == "OPEN"
+    assert detection["priority"] == 5 * 5  # Alpha Bank importance 5 x signature priority 5
+    assert detection["created_at"] == received_at  # keeps its place in the queue
+
+    # Running it again creates nothing new: the incident is no longer unmatched.
+    edited = users["admin"].put(f"/api/signatures/{created.json()['id']}", json=created.json() | {"name": "Rclone"})
+    assert edited.json()["reprocessed"] == 0
+
+
+def test_edited_signature_also_reprocesses(users, ingest):
+    incident = {"customer_id": 2, "process": {"name": "procdump.exe"}, "test": "edited-signature"}
+    assert ingest(incident).json()["reason"] == "NO_SIGNATURE"
+    signature = users["admin"].post(
+        "/api/signatures",
+        json={"name": "Procdump", "priority": 3, "conditions": [{"field": "process.name", "value": "procdump64.exe"}]},
+    ).json()
+    assert incident in unmatched_payloads(users)
+
+    fixed = signature | {"conditions": [{"field": "process.name", "value": "procdump.exe"}]}
+    assert users["admin"].put(f"/api/signatures/{signature['id']}", json=fixed).json()["reprocessed"] >= 1
+    assert incident not in unmatched_payloads(users)
+
+
+def test_customer_added_later_turns_earlier_incidents_into_detections(users, ingest):
+    customers = users["admin"].get("/api/customers").json()
+    next_id = max(c["id"] for c in customers) + 1  # serial ids: the next customer gets this one
+    matching = {"customer_id": next_id, "process": {"name": "mimikatz.exe"}, "test": "late-customer"}
+    no_signature = {"customer_id": next_id, "process": {"name": "calc.exe"}, "test": "late-customer"}
+    assert ingest(matching).json()["reason"] == "UNKNOWN_CUSTOMER"
+    assert ingest(no_signature).json()["reason"] == "UNKNOWN_CUSTOMER"
+
+    created = users["admin"].post("/api/customers", json={"name": "Late Customer", "importance": 2})
+    assert created.json()["id"] == next_id
+    assert created.json()["reprocessed"] >= 1
+
+    unmatched = users["support"].get("/api/unmatched").json()
+    assert matching not in [i["payload"] for i in unmatched]
+    # The other incident still has no signature, and now says so.
+    assert next(i for i in unmatched if i["payload"] == no_signature)["reason"] == "NO_SIGNATURE"
